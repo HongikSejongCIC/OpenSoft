@@ -1,4 +1,4 @@
-#include "/root/WorkSpace/epoll/ContentsProcess.h"
+#include "ContentsProcess.h"
 
 ContentsProcess::ContentsProcess()
 {
@@ -37,7 +37,7 @@ void ContentsProcess::putPackage(Package *package)
 void ContentsProcess::run(Package *package)
 {
 	PacketType type = package->packet_->type();
-	auto itr = runFuncTable_.find(type);
+	auto itr = runFuncTable_.find((int)type);
 	if (itr == runFuncTable_.end()) {
 		package->session_->onClose();
 		return;

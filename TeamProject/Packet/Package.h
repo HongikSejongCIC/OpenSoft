@@ -1,7 +1,6 @@
 #pragma once
 
-#include "/root/WorkSpace/epoll/Packet.h"
-
+#include "../ServerHeader.h"
 class Session;
 class Package
 {

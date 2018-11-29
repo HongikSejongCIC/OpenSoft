@@ -1,21 +1,6 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#pragma once
+#include "../ServerHeader.h"
 
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/epoll.h>
-#include <netinet/in.h>
-#include <thread>
-#include <unordered_map>
-#include <iostream>
-#define INCREASE_COUNT 100
-
-#define THREAD_COUNT 8
-
-#define BUF_SIZE 1024
 
 class Server{
 
