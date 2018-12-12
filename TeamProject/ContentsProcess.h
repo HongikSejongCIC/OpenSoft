@@ -1,8 +1,12 @@
 #pragma once
 
-#include "../ServerHeader.h"
+//#include "../ServerHeader.h"
+//#include "../Session/Session.h"
+#include "Package.h"
 
 #define MAX_PACKET_THREAD_		SIZE_64
+
+//class Package;
 class ContentsProcess
 {
 private:
@@ -26,7 +30,7 @@ public:
 	
 	void putPackage(Package *package);
 
-	virtual void registSubPacketFunc() = 0;
+//	virtual void registSubPacketFunc(){};
 
 	//--------------------------------------------------------------//
 	// 기본 패킷 기능 구현

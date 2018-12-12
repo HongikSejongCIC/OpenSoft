@@ -20,6 +20,7 @@ void ContentsProcess::initialize()
 	weiteQueue = new std::queue<Package *>;
 	readQueue = new std::queue<Package *>;
 	//쓰레드 풀 필요함.
+	for(int i = 0 ; i < processCount ; i ++)
 	std::thread{&ContentsProcess::process , this};
 	this->registDefaultPacketFunc();
 }
@@ -36,10 +37,10 @@ void ContentsProcess::putPackage(Package *package)
 
 void ContentsProcess::run(Package *package)
 {
-	PacketType type = package->packet_->type();
+	PacketType type = package->packet_->GetType();
 	auto itr = runFuncTable_.find((int)type);
 	if (itr == runFuncTable_.end()) {
-		package->session_->onClose();
+//		package->session_->onClose();
 		return;
 	}
 	RunFunc runFunction = itr->second;

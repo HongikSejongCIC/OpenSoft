@@ -1,11 +1,9 @@
-#include <stdio.h>
-#include "/root/WorkSpace/TeamProject/ServerHeader.h"
-
+#include "Server.h"
 
 //g++ -std=gnu++11 -pthread Server.cpp
 
-Server::Server(){
-
+Server::Server(ContentsProcess* contentsProcess){
+	this->contentsProcess = contentsProcess;
 	port = 9000;
 	Initialize();
 }
@@ -104,16 +102,39 @@ void Server::Run(){
 			SetNonBlocking(client);
 			epoll_event clientEpollEvent;
 			RegistEpollEvent(client,clientEpollEvent,EPOLLIN | EPOLLET);
+			
+			Session* session = new Session(client);
+			
+			Session_Map.insert(std::make_pair(client, session));
+
 		}
 
 		else{
 			client = event.data.fd;
-			int recvBytes = read(client, buf , BUF_SIZE);
+			
+			Session* session = Session_Map.find(client)->second;
+
+			int recvBytes = read(client, session->recvBuff , BUF_SIZE);
 			
 			printf("Recv Bytes => %d\n" , recvBytes);
 			buf[recvBytes] = '\0';	
 			printf("buf : %s\n " , buf);
 			
+			
+			session->recvMessage(recvBytes);
+			
+			while(true){
+			Packet* packet = nullptr;
+			session->popPacket(packet);
+			if(packet == nullptr)
+				break;
+
+			Package* package = Packaging(session,packet);	
+			contentsProcess->putPackage(package);						
+			
+			
+			
+			}
 			/*
 				TODO : Get Session From Session_Map
 				TODO : Request Data Analyzer to Session
@@ -132,6 +153,14 @@ void Server::Run(){
 
 }
 
+Package* Server::Packaging(Session* session, Packet* packet){
+
+	Package* package = new Package();
+	package->session_ = session;
+	package->packet_ = packet;
+	return package;
+}
+
 Server::~Server(){
 	for(int i = 0; i < THREAD_COUNT ; i++)
 		epoll_Thread[i].join();
@@ -147,28 +176,19 @@ void Server::test(){
 
 void Server::Create_Thread(){
 	for(int i = 0 ; i < THREAD_COUNT; i++){
-		epoll_Thread[i] = std::thread {&Server::Run, this   };
+		epoll_Thread[i] = std::thread {&Server::Run, this};
 	}
 
 	//	epoll_Thread[i] = std::thread {&Server::Run, this};
 
 }
 
-static const void print(int a){
-	
-	printf("print");
-}
-
 int main(){
+	
+	ContentsProcess* contentsProcess = new ContentsProcess();
+	Server* server = new Server(contentsProcess);
+	server->Run();
 
-	Server* server = new Server();
-//	server->Create_Thread();
-
-//	std::thread p(print,1);	
-//	p.join();
-//	for(int i = 0 ; i < THREAD_COUNT ; i++)
-
-//		std::thread t{&Server::test,&server};
 	while(true){
 
 	}		

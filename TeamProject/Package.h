@@ -1,13 +1,15 @@
 #pragma once
+//#include "../ServerHeader.h"
 
-#include "../ServerHeader.h"
-class Session;
+#include "Session.h"
 class Package
 {
 public:
 	Session *session_;
 	Packet *packet_;
+	Package(){
 
+	}
 	Package(Session *session, Packet *packet)
 	{
 		session_ = session;
