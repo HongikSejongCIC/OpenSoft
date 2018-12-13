@@ -4,23 +4,27 @@
 
 using namespace std;
 
-#define MAX_BUFF_SIZE 1024
 
 
 class Session{
 private:
 	int socket_;
 	int r_bytes;
-	int total_bytes;
 	int s_bytes;
 	queue<Packet*> p;
-	char buff[MAX_BUFF_SIZE];
+	char buff[BUF_SIZE];
+
+	recursive_mutex lock_;
+
 public:
-	char recvBuff[MAX_BUFF_SIZE];  
+
+	int total_bytes;
+
+	char recvBuff[BUF_SIZE];  
 	Session(int sock);
 	bool recvMessage(int getByte);
 	void pushPacket(Packet* pack);
-	void popPacket(Packet* pack);
+	Packet* popPacket();
 	void SendtoOther(Packet* pack);
 	Packet* getPacket(PacketType packetType);
 };

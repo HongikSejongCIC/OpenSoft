@@ -26,10 +26,15 @@
 #include "Util.h"
 
 enum PacketType : int {
-	PACKET_TYPE_ERROR = 70,
+	PACKET_TYPE_ERROR = 80,
 	E_C_REQ_EXIT = 90,
 	E_S_ANS_EXIT = 91,
-
+	E_C_REQ_CONNECT = 105,
+	E_S_ANS_CONNECT = 106,
+	E_S_NOTIFY_OTHER_CLIENT = 109,
+	E_C_REQ_MOVE = 112,
+	E_S_ANS_MOVE = 113,
+	E_S_NOTIFY_USER_DATA = 115,
 };
 
 
@@ -240,6 +245,157 @@ public:
 	
 		stream >> userNumber;
 	}
+};
 
+class PK_C_REQ_CONNECT : public Packet {
+public:
+
+public:
+
+	PK_C_REQ_CONNECT() {
+	
+	}
+	PacketType GetType() { return E_C_REQ_CONNECT; }
+
+	void Encoding() {
+		stream << (int)GetType();
+	
+	}
+
+	void Decoding() {
+	
+	}
+};
+
+
+//E_S_ANS_CONNECT = 106,
+class PK_S_ANS_CONNECT : public Packet {
+public:
+	int userNumber;
+
+public:
+	PacketType GetType() { return E_S_ANS_CONNECT; }
+
+	void Encoding() {
+		stream << (int)GetType();
+		stream << userNumber;
+
+	}
+
+	void Decoding() {
+		stream >> userNumber;
+
+	}
+};
+//E_S_NOTIFY_OTHER_CLIENT = 109,
+
+class PK_S_NOTIFY_OTHER_CLIENT : public Packet {
+public:
+	int userNumber;
+	float pos_X;
+	float pos_Y;
+public:
+	PK_S_NOTIFY_OTHER_CLIENT() {
+	
+	}
+	PacketType GetType() { return E_S_NOTIFY_OTHER_CLIENT; }
+
+	void Encoding() {
+		stream << (int)GetType();
+		stream << userNumber;
+		stream << pos_X;
+		stream << pos_Y;
+	}
+
+	void Decoding() {
+		stream >> userNumber;
+		stream >> pos_X;
+		stream >> pos_Y;
+	}
+};
+//E_C_REQ_MOVE = 112,
+
+class PK_C_REQ_MOVE : public Packet {
+public:
+	int userNumber;
+	float steering;
+	float accel;
+	float footbrake;
+	float handbrake;
+public:
+	PacketType GetType() { return E_C_REQ_MOVE; }
+
+	void Encoding() {
+		stream << (int)GetType();
+		stream << userNumber;
+		stream << steering;
+		stream << accel;
+		stream << footbrake;
+		stream << handbrake;
+	}
+
+	void Decoding() {
+		stream >> userNumber;
+		stream >> steering;
+		stream >> accel;
+		stream >> footbrake;
+		stream >> handbrake;
+	}
+};
+//E_S_ANS_MOVE = 113,
+
+
+class PK_S_ANS_MOVE : public Packet {
+public:
+	int userNumber;
+	float steering;
+	float accel;
+	float footbrake;
+	float handbrake;
+public:
+	PacketType GetType() { return E_S_ANS_MOVE; }
+
+	void Encoding() {
+		stream << (int)GetType();
+		stream << userNumber;
+		stream << steering;
+		stream << accel;
+		stream << footbrake;
+		stream << handbrake;
+	}
+
+	void Decoding() {
+		stream >> userNumber;
+		stream >> steering;
+		stream >> accel;
+		stream >> footbrake;
+		stream >> handbrake;
+	}
 
 };
+
+class PK_S_NOTIFY_USER_DATA : public Packet {
+public:
+	int userNumber;
+	float pos_X;
+	float pos_Y;
+public:
+
+	PacketType GetType() { return E_S_NOTIFY_USER_DATA; }
+
+
+	void Encoding() {
+		stream << (int)GetType();
+		stream << userNumber;
+		stream << pos_X;
+		stream << pos_Y;
+	}
+
+	void Decoding() {
+		stream >> userNumber;
+		stream >> pos_X;
+		stream >> pos_Y;
+	}
+
+};
+

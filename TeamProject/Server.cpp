@@ -4,7 +4,7 @@
 
 Server::Server(ContentsProcess* contentsProcess){
 	this->contentsProcess = contentsProcess;
-	port = 9000;
+	port = 9200;
 	Initialize();
 }
 
@@ -23,7 +23,9 @@ void Server::Listen(){
 	struct sockaddr_in addr_in;
 	
 	lstnfd = socket(PF_INET,SOCK_STREAM, 0);
-	
+	int opt = 1;
+	if (setsockopt(lstnfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(int)) < 0)
+    		printf("setsockopt(SO_REUSEADDR) failed");	
 	if(lstnfd < 0){
 		printf("Make Listen socket Failed");
 		return;
@@ -90,7 +92,6 @@ void Server::Run(){
 
 
 		if(event.data.fd == lstnfd){
-			
 			sockaddr_in client_addr;
 			socklen_t addrlen = sizeof(sockaddr_in);
 		
@@ -114,20 +115,20 @@ void Server::Run(){
 			
 			Session* session = Session_Map.find(client)->second;
 
-			int recvBytes = read(client, session->recvBuff , BUF_SIZE);
+			int recvBytes = read(client, session->recvBuff , BUF_SIZE- session->total_bytes);
 			
-			printf("Recv Bytes => %d\n" , recvBytes);
 			buf[recvBytes] = '\0';	
-			printf("buf : %s\n " , buf);
-			
 			
 			session->recvMessage(recvBytes);
 			
 			while(true){
 			Packet* packet = nullptr;
-			session->popPacket(packet);
-			if(packet == nullptr)
+			packet = session->popPacket();
+			if(packet == nullptr){
+				printf("packet is null\n");
 				break;
+
+			}
 
 			Package* package = Packaging(session,packet);	
 			contentsProcess->putPackage(package);						
@@ -154,7 +155,6 @@ void Server::Run(){
 }
 
 Package* Server::Packaging(Session* session, Packet* packet){
-
 	Package* package = new Package();
 	package->session_ = session;
 	package->packet_ = packet;

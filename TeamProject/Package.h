@@ -19,6 +19,5 @@ public:
 	~Package()
 	{
 		session_ = nullptr;
-		delete(packet_);
 	}
 };

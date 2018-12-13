@@ -3,21 +3,30 @@
 Session :: Session(int sock)
 {
 	socket_ = sock;
+
+
+	r_bytes = 0;
+	total_bytes = 0;
+	s_bytes = 0;
+	memset(buff, 0 , BUF_SIZE);
+
 }
 bool Session :: recvMessage(int getByte)
 {
-	
 	memcpy(&buff[total_bytes],recvBuff,getByte);
 	total_bytes += getByte;
+	printf("receive bytes %d, total Bytes : %d \n", getByte, total_bytes);
 
 	while(1)
 	{
 		int packetSize;
 		PacketType packetType;
 		int currentOffset = 0;
-		
-		if(total_bytes < sizeof(int))//total_bytes가 처음recv를 받았다면고대로 total_bytes에 받은 바이트만큼 넣어줌
+			
+		if(total_bytes < sizeof(int)){
+			printf("total_bytes is not enough to parsing \n");
 			break;
+		}
  		
 		memcpy(&packetSize, buff, sizeof(int));
 		currentOffset += sizeof(int);
@@ -31,13 +40,11 @@ bool Session :: recvMessage(int getByte)
 
 		Packet* packet = getPacket(packetType);
 
-
-
 		memcpy(packet->stream.buffer,&buff[currentOffset], packetSize- currentOffset);
 
-
-		packet->Encoding();
-
+		packet->Decoding();
+		
+		printf("Stream Parse! Packet Type : %d \n", packet->GetType());	
 		pushPacket(packet);
 
 		memcpy(buff,&buff[packetSize],total_bytes-packetSize);
@@ -48,8 +55,19 @@ bool Session :: recvMessage(int getByte)
 
 Packet* Session :: getPacket(PacketType packetType){
 
-	switch(packetType){
+	switch (packetType) {
 	case E_C_REQ_EXIT: return new PK_C_REQ_EXIT();
+	case E_S_ANS_EXIT: return new PK_S_ANS_EXIT();
+
+	case E_C_REQ_CONNECT: return new PK_C_REQ_CONNECT();
+	case E_S_ANS_CONNECT: return new PK_S_ANS_CONNECT();
+	
+	case E_S_NOTIFY_OTHER_CLIENT: return new PK_S_NOTIFY_OTHER_CLIENT();
+
+	case E_C_REQ_MOVE: return new PK_C_REQ_MOVE();
+	case E_S_ANS_MOVE: return new PK_S_ANS_MOVE();
+
+	case E_S_NOTIFY_USER_DATA: return new PK_S_NOTIFY_USER_DATA();
 
 	}
 	return nullptr;
@@ -57,34 +75,49 @@ Packet* Session :: getPacket(PacketType packetType){
 
 void Session :: pushPacket(Packet* pack)
 {
+	lock_.lock();
 	p.push(pack);
+	lock_.unlock();
 }
 
-void Session :: popPacket(Packet* pack)
+Packet* Session :: popPacket()
 {
+
+	Packet* temp = nullptr;
+	lock_.lock();
 	if(p.empty()){
-		pack = nullptr;
+		printf("Sesion Queue Empty\n");
+	
+	}else{
+		printf("popPacket");
+	
+		temp = p.front();
+		p.pop();
 	}
-	pack = p.front();
-	p.pop();
+
+	lock_.unlock();
+
+	return temp;
 }
 
 void Session :: SendtoOther(Packet* pack )
-{
-	/*
-	char buff[MAX_BUFF_SIZE] = {NULL,};
-	int total_Send_bytes = 0;
-	while(!p.empty())
-	{
-		packet_* tmppack = NULL; 
-		pack_dequeue(tmppack);
-		int len = sizeof(tmppack->data_) + sizeof(tmppack->type_);	
-		sscanf(buff, "%d", len);//길이를 버퍼에 넣어줌
-		sscanf(buff + sizeof(int), "%d", tmppack->type_);//int형태의 타입을 버퍼에 넣어줌
-		memcpy(buff + sizeof(int)*2, tmppack->data_, sizeof(tmppack->data_));
+{	
+
+	pack->stream.offset = 0;
 		
-		s_bytes = send(socket_,buff,MAX_BUFF_SIZE,0);
-		printf("pack_len: %d, pack_type: %d, pack_data: %s\n", len, tmppack->type_, tmppack->data_);
-	}
-	*/
+
+	pack->Encoding();
+
+	int buflen = pack->stream.offset + sizeof(int);
+	char buf[100] = {0,};
+	memcpy(buf,&buflen,sizeof(int));
+	memcpy(&buf[sizeof(int)],pack->stream.buffer,pack->stream.offset);
+
+//	memcpy(&pack->stream.buffer[sizeof(int)],pack->stream.buffer,pack->stream.offset);
+//	memcpy(pack->stream.buffer,&buflen,sizeof(int));
+
+	s_bytes = send(socket_,buf,buflen,0);
+	printf("pack_len: %d, pack_type: %d, \n", buflen , pack->GetType());
+	
+	
 }
