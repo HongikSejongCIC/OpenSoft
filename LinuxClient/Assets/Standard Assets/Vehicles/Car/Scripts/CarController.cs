@@ -1,5 +1,7 @@
 using System;
 using UnityEngine;
+using DummyClient;
+
 
 namespace UnityStandardAssets.Vehicles.Car
 {
@@ -171,7 +173,8 @@ namespace UnityStandardAssets.Vehicles.Car
             TractionControl();
         }
 
-
+        public float speed1 = 2.23693629f;
+        public float speed2 = 3.6f;
         private void CapSpeed()
         {
             float speed = m_Rigidbody.velocity.magnitude;
@@ -179,13 +182,13 @@ namespace UnityStandardAssets.Vehicles.Car
             {
                 case SpeedType.MPH:
 
-                    speed *= 2.23693629f;
+                    speed *= speed1;
                     if (speed > m_Topspeed)
                         m_Rigidbody.velocity = (m_Topspeed/2.23693629f) * m_Rigidbody.velocity.normalized;
                     break;
 
                 case SpeedType.KPH:
-                    speed *= 3.6f;
+                    speed *= speed2;
                     if (speed > m_Topspeed)
                         m_Rigidbody.velocity = (m_Topspeed/3.6f) * m_Rigidbody.velocity.normalized;
                     break;
