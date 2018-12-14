@@ -1,126 +1,197 @@
+#include "Server.h"
 
-#include <sys/socket.h>
-#include <sys/epoll.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <string.h>
+//g++ -std=gnu++11 -pthread Server.cpp
 
-#define MAXLINE		10
-#define OPEN_MAX	100
-#define LISTENQ		20
-#define SERV_PORT	5555
-#define INFTIM		1000
-
-void setnonblocking(int sock)
-{
-	int opts;
-	opts = fcntl(sock, F_GETFL);
-
-	if(opts < 0) {
-		perror("fcntl(sock, GETFL)");
-		exit(1);
-	}
-
-	opts = opts | O_NONBLOCK;
-
-	if(fcntl(sock, F_SETFL, opts) < 0) {
-		perror("fcntl(sock, SETFL, opts)");
-		exit(1);
-	}
+Server::Server(ContentsProcess* contentsProcess){
+	this->contentsProcess = contentsProcess;
+	port = 9200;
+	Initialize();
 }
 
-int main(int argc, char *argv[])
-{
-	printf("epoll socket begins.\n");
-	int i, maxi, listenfd, connfd, sockfd, epfd, nfds;
-	ssize_t n;
-	char line[MAXLINE];
-	socklen_t clilen;
 
-	struct epoll_event ev, events[20];
+void Server::Initialize(){
+	CreateEpoll();	
+	Listen();
+	RegistEpollEvent(lstnfd,listen_event, EPOLLIN);
 
-	epfd = epoll_create(256);
+	Create_Thread();
 
-	struct sockaddr_in clientaddr;
-	struct sockaddr_in serveraddr;
+}
 
-	listenfd = socket(AF_INET, SOCK_STREAM, 0);
+void Server::Listen(){
+	
+	struct sockaddr_in addr_in;
+	
+	lstnfd = socket(PF_INET,SOCK_STREAM, 0);
+	int opt = 1;
+	if (setsockopt(lstnfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(int)) < 0)
+    		printf("setsockopt(SO_REUSEADDR) failed");	
+	if(lstnfd < 0){
+		printf("Make Listen socket Failed");
+		return;
+	}
 
-	setnonblocking(listenfd);
+	memset(&addr_in, 0, sizeof(sockaddr_in));
 
-	ev.data.fd = listenfd;
-	ev.events = EPOLLIN | EPOLLET;
+	addr_in.sin_family = AF_INET;
+	addr_in.sin_addr.s_addr = htonl(INADDR_ANY);
+	addr_in.sin_port = htons(port);
+	
+	if(bind(lstnfd, (struct sockaddr*)&addr_in, sizeof(sockaddr_in))<0){
+		printf("bind error");
+		return;
+	}
 
-	epoll_ctl(epfd, EPOLL_CTL_ADD, listenfd, &ev);
+	if(listen(lstnfd, 5) < 0){
+		printf("listen Failed ");
+		return;
+	}
+	
 
-	bzero(&serveraddr, sizeof(serveraddr));
-	serveraddr.sin_family = AF_INET;
-	char *local_addr = "192.168.199.8";
-	inet_aton(local_addr, &(serveraddr.sin_addr));
-	serveraddr.sin_port = htons(SERV_PORT);
+}
 
-	bind(listenfd, (struct sockaddr *)&serveraddr, sizeof(serveraddr));
+void Server::SetNonBlocking(int fd){
+	int flag = fcntl(fd, F_GETFL, 0);
+	fcntl(fd, F_SETFL, flag|O_NONBLOCK);
 
-	listen(listenfd, LISTENQ);
+}
 
-	maxi = 0;
+void Server::CreateEpoll(){
+	if((epfd = epoll_create(INCREASE_COUNT * 10)) < 0){
+		printf("epoll_create Failed\n");
+		return;
+	}		
+}
 
-	for(; ;) {
-		nfds = epoll_wait(epfd, events, 20, 500);
+void Server::RegistEpollEvent(int fd, epoll_event& event, unsigned int flag){
 
-		for(i = 0; i < nfds; ++i) {
-			if(events[i].data.fd == listenfd) {
-				printf("accept connection, fd is %d\n", listenfd);
-				connfd = accept(listenfd, (struct sockaddr *)&clientaddr, &clilen);
-				if(connfd < 0) {
-					perror("connfd < 0");
-					exit(1);
-				}
+memset(&event, 0, sizeof(epoll_event));
 
-				setnonblocking(connfd);
+event.events = flag;
+event.data.fd = fd;
+epoll_ctl(epfd, EPOLL_CTL_ADD, fd, &event);
 
-				char *str = inet_ntoa(clientaddr.sin_addr);
-				printf("connect from %s\n", str);
+}
+/*
+void Server::CreateSession(){
+	
+}
+*/
+void Server::Run(){
 
-				ev.data.fd = connfd;
-				ev.events = EPOLLIN | EPOLLET;
-				epoll_ctl(epfd, EPOLL_CTL_ADD, connfd, &ev);
+	epoll_event event;
+	int client;	
+	char buf[BUF_SIZE] = { 0,};
+	while(true){
+	try{
+		int ret = epoll_wait(epfd,&event, 1 , -1);
+		if( ret < 0 ){
+			printf("epoll_wait Error\n ");
+			return; 
+		}
+
+
+		if(event.data.fd == lstnfd){
+			sockaddr_in client_addr;
+			socklen_t addrlen = sizeof(sockaddr_in);
+		
+			client = accept(lstnfd, (sockaddr*)&client_addr,&addrlen);
+			if(client < 0 ){
+				printf("Accept Error\n");
+				return;
+			}			
+			SetNonBlocking(client);
+			epoll_event clientEpollEvent;
+			RegistEpollEvent(client,clientEpollEvent,EPOLLIN | EPOLLET);
+			
+			Session* session = new Session(client);
+			
+			Session_Map.insert(std::make_pair(client, session));
+
+		}
+
+		else{
+			client = event.data.fd;
+			
+			Session* session = Session_Map.find(client)->second;
+
+			int recvBytes = read(client, session->recvBuff , BUF_SIZE- session->total_bytes);
+			
+			buf[recvBytes] = '\0';	
+			
+			session->recvMessage(recvBytes);
+			
+			while(true){
+			Packet* packet = nullptr;
+			packet = session->popPacket();
+			if(packet == nullptr){
+				printf("packet is null\n");
+				break;
+
 			}
-			else if(events[i].events & EPOLLIN) {
-				if((sockfd = events[i].data.fd) < 0) continue;
-				if((n = read(sockfd, line, MAXLINE)) < 0) {
-					if(errno == ECONNRESET) {
-						close(sockfd);
-						events[i].data.fd = -1;
-					} else {
-						printf("readline error");
-					}
-				} else if(n == 0) {
-					close(sockfd);
-					events[i].data.fd = -1;
-				}
-				
-				printf("received data: %s\n", line);
 
-				ev.data.fd = sockfd;
-				ev.events = EPOLLOUT | EPOLLET;
-				epoll_ctl(epfd, EPOLL_CTL_MOD, sockfd, &ev);
+			Package* package = Packaging(session,packet);	
+			contentsProcess->putPackage(package);						
+			
+			
+			
 			}
-			else if(events[i].events & EPOLLOUT) {
-				sockfd = events[i].data.fd;
-				write(sockfd, line, n);
+			/*
+				TODO : Get Session From Session_Map
+				TODO : Request Data Analyzer to Session
+				TODO : Push Package to Contents
+			*/
 
-				printf("written data: %s\n", line);
-
-				ev.data.fd = sockfd;
-				ev.events = EPOLLIN | EPOLLET;
-				epoll_ctl(epfd, EPOLL_CTL_MOD, sockfd, &ev);
-			}
+		}
+		}catch(int fd){
+			int client = event.data.fd;
+			RegistEpollEvent(client,event,EPOLL_CTL_DEL);
+			printf("Error Client Out\n");
+		
 		}
 	}
+	
+
+}
+
+Package* Server::Packaging(Session* session, Packet* packet){
+	Package* package = new Package();
+	package->session_ = session;
+	package->packet_ = packet;
+	return package;
+}
+
+Server::~Server(){
+	for(int i = 0; i < THREAD_COUNT ; i++)
+		epoll_Thread[i].join();
+
+}
+
+
+void Server::test(){
+
+	printf("test");
+}
+
+
+void Server::Create_Thread(){
+	for(int i = 0 ; i < THREAD_COUNT; i++){
+		epoll_Thread[i] = std::thread {&Server::Run, this};
+	}
+
+	//	epoll_Thread[i] = std::thread {&Server::Run, this};
+
+}
+
+int main(){
+	
+	ContentsProcess* contentsProcess = new ContentsProcess();
+	Server* server = new Server(contentsProcess);
+	server->Run();
+
+	while(true){
+
+	}		
+	return 0;
+
 }
